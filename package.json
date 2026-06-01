@@ -1,0 +1,35 @@
+{
+  "name": "ayurvedic-nutrition-engine",
+  "version": "1.0.0",
+  "description": "Advanced RAG-Based Ayurvedic Nutrition Engine MVP",
+  "main": "index.js",
+  "scripts": {
+    "start": "node start.js",
+    "dev": "node dev-start.js",
+    "dev:concurrent": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "backend": "cd backend && npm start",
+    "frontend": "cd frontend && npm start",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "test:rag": "node scripts/test-rag-only.js",
+    "test:storage": "node scripts/test-storage.js",
+    "test:shutdown": "node scripts/test-shutdown.js",
+    "check:data": "node scripts/setup-data-files.js",
+    "logs": "open log-viewer.html"
+  },
+  "keywords": [
+    "ayurveda",
+    "nutrition",
+    "rag",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "axios": "^1.11.0"
+  }
+}

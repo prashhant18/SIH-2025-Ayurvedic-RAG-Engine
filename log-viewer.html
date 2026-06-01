@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ayurvedic RAG Server Logs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #2d2d2d;
+            padding: 1rem;
+            border-bottom: 2px solid #8B4513;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #D2691E;
+            font-size: 1.2rem;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .btn {
+            background: #8B4513;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .btn:hover {
+            background: #654321;
+        }
+        
+        .btn.danger {
+            background: #dc3545;
+        }
+        
+        .btn.danger:hover {
+            background: #c82333;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.disconnected {
+            background: #dc3545;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .logs-container {
+            height: calc(100vh - 80px);
+            overflow-y: auto;
+            padding: 1rem;
+            background: #1a1a1a;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            border-left: 4px solid #666;
+            background: #2a2a2a;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+        
+        .log-entry.info {
+            border-left-color: #17a2b8;
+        }
+        
+        .log-entry.success {
+            border-left-color: #28a745;
+        }
+        
+        .log-entry.warning {
+            border-left-color: #ffc107;
+        }
+        
+        .log-entry.error {
+            border-left-color: #dc3545;
+        }
+        
+        .log-entry.debug {
+            border-left-color: #6f42c1;
+        }
+        
+        .log-timestamp {
+            color: #888;
+            font-size: 0.75rem;
+        }
+        
+        .log-level {
+            display: inline-block;
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-right: 0.5rem;
+            text-transform: uppercase;
+        }
+        
+        .log-level.info { background: #17a2b8; color: white; }
+        .log-level.success { background: #28a745; color: white; }
+        .log-level.warning { background: #ffc107; color: black; }
+        .log-level.error { background: #dc3545; color: white; }
+        .log-level.debug { background: #6f42c1; color: white; }
+        
+        .log-message {
+            color: #e0e0e0;
+        }
+        
+        .log-data {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: #1a1a1a;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            color: #ccc;
+            white-space: pre-wrap;
+        }
+        
+        .no-logs {
+            text-align: center;
+            color: #888;
+            margin-top: 2rem;
+        }
+        
+        .filter-container {
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .filter-select {
+            background: #2d2d2d;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            padding: 0.3rem 0.5rem;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌿 Ayurvedic RAG Server Logs</h1>
+        <div class="controls">
+            <div class="status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+            <button class="btn" onclick="toggleAutoScroll()">
+                <span id="autoScrollText">Auto-scroll: ON</span>
+            </button>
+            <button class="btn danger" onclick="clearLogs()">Clear Logs</button>
+        </div>
+    </div>
+    
+    <div class="logs-container">
+        <div class="filter-container">
+            <label>Filter by level:</label>
+            <select class="filter-select" id="levelFilter" onchange="filterLogs()">
+                <option value="">All levels</option>
+                <option value="info">Info</option>
+                <option value="success">Success</option>
+                <option value="warning">Warning</option>
+                <option value="error">Error</option>
+                <option value="debug">Debug</option>
+            </select>
+        </div>
+        
+        <div id="logsContent">
+            <div class="no-logs">Connecting to server...</div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let autoScroll = true;
+        let logs = [];
+        
+        function connectToLogs() {
+            const token = prompt('Enter your JWT token (from login):');
+            if (!token) return;
+            
+            eventSource = new EventSource(`http://localhost:5000/api/logs/stream?token=${token}`);
+            
+            eventSource.onopen = function() {
+                updateStatus('Connected', true);
+            };
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const logEntry = JSON.parse(event.data);
+                    if (logEntry.type !== 'ping') {
+                        addLogEntry(logEntry);
+                    }
+                } catch (error) {
+                    console.error('Failed to parse log entry:', error);
+                }
+            };
+            
+            eventSource.onerror = function() {
+                updateStatus('Disconnected', false);
+                setTimeout(connectToLogs, 5000); // Retry after 5 seconds
+            };
+        }
+        
+        function updateStatus(text, connected) {
+            document.getElementById('statusText').textContent = text;
+            document.getElementById('statusDot').className = 
+                'status-dot' + (connected ? '' : ' disconnected');
+        }
+        
+        function addLogEntry(logEntry) {
+            logs.push(logEntry);
+            
+            // Keep only last 500 logs
+            if (logs.length > 500) {
+                logs = logs.slice(-500);
+            }
+            
+            renderLogs();
+        }
+        
+        function renderLogs() {
+            const container = document.getElementById('logsContent');
+            const filter = document.getElementById('levelFilter').value;
+            
+            const filteredLogs = filter ? 
+                logs.filter(log => log.level === filter) : logs;
+            
+            if (filteredLogs.length === 0) {
+                container.innerHTML = '<div class="no-logs">No logs to display</div>';
+                return;
+            }
+            
+            container.innerHTML = filteredLogs.map(log => {
+                const timestamp = new Date(log.timestamp).toLocaleTimeString();
+                const dataHtml = log.data ? 
+                    `<div class="log-data">${JSON.stringify(log.data, null, 2)}</div>` : '';
+                
+                return `
+                    <div class="log-entry ${log.level}">
+                        <div>
+                            <span class="log-timestamp">${timestamp}</span>
+                            <span class="log-level ${log.level}">${log.level}</span>
+                            <span class="log-message">${log.message}</span>
+                        </div>
+                        ${dataHtml}
+                    </div>
+                `;
+            }).join('');
+            
+            if (autoScroll) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+        
+        function toggleAutoScroll() {
+            autoScroll = !autoScroll;
+            document.getElementById('autoScrollText').textContent = 
+                `Auto-scroll: ${autoScroll ? 'ON' : 'OFF'}`;
+        }
+        
+        function filterLogs() {
+            renderLogs();
+        }
+        
+        function clearLogs() {
+            if (confirm('Clear all logs?')) {
+                logs = [];
+                renderLogs();
+                
+                // Also clear server logs
+                const token = prompt('Enter your JWT token to clear server logs:');
+                if (token) {
+                    fetch('http://localhost:5000/api/logs/clear', {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                }
+            }
+        }
+        
+        // Start connection
+        connectToLogs();
+    </script>
+</body>
+</html>
