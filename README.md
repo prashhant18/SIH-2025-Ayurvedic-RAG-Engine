@@ -209,4 +209,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built for the Smart India Hackathon 2025** 🇮🇳
 
-*Combining ancient Ayurvedic wisdom with modern AI technology*
+*Combining ancient Ayurvedic wisdom with modern AI technology using RAG*
