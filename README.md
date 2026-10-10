@@ -180,7 +180,7 @@ npm run dev
 
 - **Backend**: Node.js, Express, Groq API
 - **Frontend**: React, Tailwind CSS, React Markdown
-- **AI**: Groq (Llama 3.1), FAISS vector search
+- **AI**: Groq (GPT OSS-120B), FAISS vector search
 - **Storage**: Local JSON files, in-memory caching
 - **Logging**: Custom logger with real-time streaming
 
